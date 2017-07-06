@@ -1,9 +1,9 @@
 #!/bin/bash
 
-for (( i; i < $1; i++ ))
+for (( i=0; i < $1; i++ ))
 do
-a=$(( ( RANDOM % 7 )  + 1 ))
-b=$(( ( RANDOM % 20 )  + 1 ))
-c=$(date -d 2017-$a-$b +"%Y%m%d")
-echo "/user/developer1/.snapshot/s$c-165612.432"
+month=$(( ( RANDOM % 7 )  + 1 ))
+day=$(( ( RANDOM % 28 )  + 1 ))
+date=$(date -d 2017-$a-$b +"%Y%m%d")
+echo "/user/developer1/.snapshot/s$date-165612.432"
 done
