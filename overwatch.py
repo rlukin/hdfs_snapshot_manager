@@ -2,83 +2,70 @@
 
 import subprocess
 import re
-import time
-import pprint
+from pprint import pprint
 
-def get_snapshots_dict():
-#    command = ["hdfs", "dfs", "-ls", "-C", "/user/*/.snapshot"]
-    command = ["/home/hdfs/gendate.sh", "100"]
+import dateutil.relativedelta
+from datetime import datetime
+
+def get_snapshots():
+    
+    #get snapshot list from hdfs /user 
+
+    #command = ["hdfs", "dfs", "-ls", "-C", "/user/*/.snapshot"]
+    command = ["/home/vagrant/gendate.sh"]
     snapshots = subprocess.check_output(command)
     snapshots = snapshots.splitlines()
     
-    snapshots_dict = {}
+    snapshots.sort()
+    return snapshots
+
+def get_snapshot_date(name):
+
+    #convert snapshot name to date
+
+    raw_date = re.search('(?<=.snapshot/s)[0-9]+', name).group(0)
+    date = datetime.strptime(raw_date, "%Y%m%d")
+    return date
+
+def get_outdated(snapshots):
     
+    #apply backup policy
+    #determ useless backups
+    
+    #define passed week and month
+    week  = datetime.now() - dateutil.relativedelta.relativedelta(days=7)
+    month = datetime.now() - dateutil.relativedelta.relativedelta(months=1)
+
+    outdated = []
+
     for snapshot in snapshots:
-        raw_date = re.search('(?<=.snapshot/s)[0-9]+', snapshot).group(0)
-        epoch = time.mktime(time.strptime(raw_date, "%Y%m%d"))
-        snapshots_dict.update({snapshot: epoch})
-    return snapshots_dict
+        snapshot_date = get_snapshot_date(snapshot)
+        
+        #rule for passed month backup
+        #keep friday release backups 
+        if ( snapshot_date < week) and (snapshot_date > month):
+            if ( snapshot_date.isoweekday() != 5 ):
+                outdated.append(snapshot)
 
-def print_snapshot_groups(weekly, monthly, old, redundant):
-    pp = pprint.PrettyPrinter(indent=4)
-    
-    print '-'*((80-25)/2),'under week ago snapshots:','-'*((80-25)/2)
-    pp.pprint(weekly)
-    
-    print '-'*((80-7)/2),'monthly','-'*((80-7)/2)
-    pp.pprint(monthly)
-    
-    print '-'*((80-16)/2),'older than month','-'*((80-16)/2-1)
-    pp.pprint(old)
+        #rule for older than month backups
+        #keep first day of month copy
+        if ( snapshot_date <= month):
+            if ( snapshot_date.day != 1 ):
+                outdated.append(snapshot)
+         
+    return outdated
 
-    print '-'*((80-18)/2),'snapshots to remove','-'*((80-18)/2)
-    pp.pprint(redundant)
-
-def get_redundant(array, period):
-    redundant = []
-    latest = array[0][1]
-    array = array[1:]
-    for item in array:
-        if (item[1] <= latest - period):
-           latest = item[1]
-        else:
-          redundant.append(item[0])
-    return redundant
+def remove_snapshots(snapshots):
+    for snapshot in snapshots:
+        command = ["hdfs", "dfs", "-deleteSnapshot", snapshot]
+        subprocess.call(command)
 
 
-week = 7*24*60*60
-month = 30*24*60*60
+snapshots = get_snapshots()
 
-current_time = time.time()
-week_ago = current_time - week
-month_ago = current_time - month
+outdated_snapshots = get_outdated(snapshots)
 
-weekly_snapshots = []
-monthly_snapshots = []
-old_snapshots = []
-
-snapshots = get_snapshots_dict()
-
-for snapshot, date in snapshots.items():
-    if (date >= week_ago):
-        weekly_snapshots.append([snapshot, date])
-    elif (date < week_ago) and (date >= month_ago):
-        monthly_snapshots.append([snapshot, date])
-    elif (date < month_ago):
-        old_snapshots.append([snapshot, date])
-
-weekly_snapshots.sort(key=lambda x: x[1], reverse=True)
-monthly_snapshots.sort(key=lambda x: x[1], reverse=True)
-old_snapshots.sort(key=lambda x: x[1], reverse=True)
-
-redundant_snapshots = get_redundant(monthly_snapshots, week) + get_redundant(old_snapshots, month) 
-
-print_snapshot_groups(weekly_snapshots, monthly_snapshots, old_snapshots, redundant_snapshots)
-
-weekly_snapshots = [ x for x in weekly_snapshots if x[0] not in redundant_snapshots]
-monthly_snapshots = [ x for x in monthly_snapshots if x[0]  not in redundant_snapshots]
-old_snapshots = [ x for x in old_snapshots if x[0] not in redundant_snapshots]
-
+#remove_snapshots(outdated_snapshots)    
 
 print "After removing unnecessary files we have only:"
-print_snapshot_groups(weekly_snapshots, monthly_snapshots, old_snapshots, None)
+pprint([ x for x in snapshots if x not in outdated_snapshots ])

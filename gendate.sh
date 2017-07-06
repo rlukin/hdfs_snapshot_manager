@@ -1,9 +1,7 @@
 #!/bin/bash
 
-for (( i=0; i < $1; i++ ))
-do
-month=$(( ( RANDOM % 7 )  + 1 ))
-day=$(( ( RANDOM % 28 )  + 1 ))
-date=$(date -d 2017-$a-$b +"%Y%m%d")
-echo "/user/developer1/.snapshot/s$date-165612.432"
+date="20160101"
+until [[ $date > "2017-07-06" ]]; do 
+    echo "/user/developer1/.snapshot/s$date-165612.432"
+    date=$(date -d "$date + 1 day" +"%Y%m%d")
 done
