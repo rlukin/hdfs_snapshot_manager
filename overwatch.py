@@ -44,7 +44,7 @@ def get_outdated(snapshots):
         #rule for passed month backup
         #keep friday release backups 
         if ( snapshot_date < week) and (snapshot_date > month):
-            if ( snapshot_date.isoweekday() != 5 ):
+            if ( snapshot_date.isoweekday() != 5 ) and ( snapshot_date.day != 1 ):
                 outdated.append(snapshot)
 
         #rule for older than month backups
